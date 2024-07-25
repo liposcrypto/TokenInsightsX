@@ -1,0 +1,135 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from typing import Dict, List
+
+class Token:
+    def __init__(self, symbol: str, name: str, total_supply: float):
+        self.symbol = symbol
+        self.name = name
+        self.total_supply = total_supply
+        self.balance = {}  # Maps account addresses to token balance
+
+    def transfer(self, sender: str, recipient: str, amount: float):
+        if sender not in self.balance or self.balance[sender] < amount:
+            return False
+        if recipient not in self.balance:
+            self.balance[recipient] = 0
+        self.balance[sender] -= amount
+        self.balance[recipient] += amount
+        return True
+
+    def mint(self, recipient: str, amount: float):
+        if recipient not in self.balance:
+            self.balance[recipient] = 0
+        self.balance[recipient] += amount
+        self.total_supply += amount
+
+    def get_balance(self, account: str) -> float:
+        return self.balance.get(account, 0)
+
+    def to_dict(self) -> Dict:
+        return {
+            "Symbol": self.symbol,
+            "Name": self.name,
+            "Total Supply": self.total_supply,
+            "Balances": self.balance
+        }
+
+class TokenInsightsX:
+    def __init__(self):
+        self.tokens = {}  # Maps token symbols to Token objects
+        self.transactions = []
+
+    def create_token(self, symbol: str, name: str, total_supply: float):
+        if symbol in self.tokens:
+            print(f"Token {symbol} already exists.")
+            return False
+        self.tokens[symbol] = Token(symbol, name, total_supply)
+        print(f"Token {symbol} ({name}) created with total supply of {total_supply}.")
+        return True
+
+    def mint_tokens(self, symbol: str, recipient: str, amount: float):
+        if symbol not in self.tokens:
+            print(f"Token {symbol} does not exist.")
+            return False
+        token = self.tokens[symbol]
+        token.mint(recipient, amount)
+        self.transactions.append({
+            "Symbol": symbol,
+            "Type": "Mint",
+            "Recipient": recipient,
+            "Amount": amount
+        })
+        return True
+
+    def transfer_tokens(self, symbol: str, sender: str, recipient: str, amount: float):
+        if symbol not in self.tokens:
+            print(f"Token {symbol} does not exist.")
+            return False
+        token = self.tokens[symbol]
+        success = token.transfer(sender, recipient, amount)
+        if success:
+            self.transactions.append({
+                "Symbol": symbol,
+                "Type": "Transfer",
+                "Sender": sender,
+                "Recipient": recipient,
+                "Amount": amount
+            })
+        return success
+
+    def get_token_balance(self, symbol: str, account: str) -> float:
+        if symbol not in self.tokens:
+            print(f"Token {symbol} does not exist.")
+            return None
+        token = self.tokens[symbol]
+        return token.get_balance(account)
+
+    def analyze_performance(self) -> pd.DataFrame:
+        data = []
+        for symbol, token in self.tokens.items():
+            total_balance = sum(token.balance.values())
+            data.append({
+                "Symbol": symbol,
+                "Total Supply": token.total_supply,
+                "Total Balance": total_balance,
+                "Minted": total_balance - token.total_supply
+            })
+        df = pd.DataFrame(data)
+        return df
+
+    def plot_performance(self):
+        df = self.analyze_performance()
+        df.plot(kind='bar', x='Symbol', y=['Total Supply', 'Total Balance', 'Minted'], figsize=(12, 6))
+        plt.title('Token Performance')
+        plt.xlabel('Token Symbol')
+        plt.ylabel('Value')
+        plt.show()
+
+# Example Usage
+if __name__ == "__main__":
+    insights = TokenInsightsX()
+
+    # Create tokens
+    insights.create_token("ETH", "Ethereum", 1000000)
+    insights.create_token("BTC", "Bitcoin", 21000000)
+
+    # Mint tokens
+    insights.mint_tokens("ETH", "alice", 50000)
+    insights.mint_tokens("BTC", "bob", 1000)
+
+    # Transfer tokens
+    insights.transfer_tokens("ETH", "alice", "bob", 10000)
+    insights.transfer_tokens("BTC", "bob", "alice", 200)
+
+    # Get balances
+    print(f"ETH Balance for alice: {insights.get_token_balance('ETH', 'alice')}")
+    print(f"BTC Balance for bob: {insights.get_token_balance('BTC', 'bob')}")
+
+    # Analyze and plot token performance
+    print("\nToken Performance Analysis:")
+    performance = insights.analyze_performance()
+    print(performance)
+    
+    print("\nPlotting Token Performance:")
+    insights.plot_performance()
